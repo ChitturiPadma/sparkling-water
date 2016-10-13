@@ -83,7 +83,7 @@ private[repl] abstract class BaseH2OInterpreter(val sparkContext: SparkContext, 
     * @param code Code to be compiled end executed
     * @return
     */
-  def runCode(code: String): CodeResults.Value = {
+  def runCode(code: String): CodeResults.Value = BaseH2OInterpreter.savingContextClassloader {
     initBeforeRunningCode(code)
     // Redirect output from console to our own stream
     scala.Console.withOut(consoleStream) {
@@ -145,9 +145,7 @@ private[repl] abstract class BaseH2OInterpreter(val sparkContext: SparkContext, 
   /**
     * Run all thunks after the interpreter has been initialized and throw exception if anything went wrong
     */
-  private[repl] def postInitialization() {
-    // set the context classloader to classloader of this repl
-    intp.setContextClassLoader()
+  private[repl] def postInitialization() : Unit = BaseH2OInterpreter.savingContextClassloader {
     try {
       runThunks()
     } catch {
@@ -291,4 +289,15 @@ private[repl] abstract class BaseH2OInterpreter(val sparkContext: SparkContext, 
   }
 
   initializeInterpreter()
+}
+
+object BaseH2OInterpreter {
+
+  def savingContextClassloader[T](body: => T): T = {
+    val classloader = Thread.currentThread().getContextClassLoader
+    try {
+      body
+    }
+    finally Thread.currentThread().setContextClassLoader(classloader)
+  }
 }
